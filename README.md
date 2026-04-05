@@ -47,7 +47,8 @@ The system's real-time engine prevents scheduling conflicts by looking at:
 ### Installation
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/your-username/timetable.git
+    git clone https://github.com/shrabankr/timetable.git
+    cd timetable
     ```
 2.  Install dependencies:
     ```bash
@@ -57,11 +58,89 @@ The system's real-time engine prevents scheduling conflicts by looking at:
     ```bash
     npm run dev
     ```
+    The application will open at `http://localhost:5173`
+
+## 📦 Available Scripts
+
+*   **`npm run dev`** - Start development server with hot module reloading
+*   **`npm run build`** - Build for production (TypeScript + Vite optimization)
+*   **`npm run preview`** - Preview production build locally
+*   **`npm run lint`** - Run ESLint for code quality checks
+
+## 🌐 Deployment
+
+### Netlify Deployment
+This project is configured for seamless deployment on **Netlify**:
+
+1.  Connect your GitHub repository to [Netlify](https://app.netlify.com)
+2.  Netlify automatically detects `netlify.toml` configuration
+3.  Build settings:
+    - **Build command**: `npm run build`
+    - **Publish directory**: `dist`
+    - **SPA routing**: Configured for client-side navigation
+
+**Live Demo**: Check the [Netlify dashboard](https://app.netlify.com) for deployment URL after connecting your repo.
+
+## 📁 Project Structure
+
+```
+src/
+├── components/          # React components
+│   ├── Header.tsx              # Navigation and export controls
+│   ├── TimetableGrid.tsx        # Main scheduling grid
+│   ├── TeacherPanel.tsx         # Teacher workload tracker
+│   ├── AddTeacherModal.tsx      # Teacher assignment UI
+│   ├── ClassManagerModal.tsx    # Class section management
+│   └── TimingSettingsModal.tsx  # Timing preset configuration
+├── store/              # State management (Context API + useReducer)
+│   └── TimetableContext.tsx     # Global app context
+├── types/              # TypeScript type definitions
+│   └── index.ts
+├── utils/              # Helper functions and validation logic
+│   └── engine.ts               # Constraint validation engine
+├── data/               # Mock data for development
+│   └── mockData.ts
+├── App.tsx             # Root component
+└── main.tsx            # Entry point
+```
 
 ## 📝 Usage Tips
-1.  **Setting Defaults**: Open `Timing Settings` (Settings Icon) to set your global default preset for new sessions.
-2.  **Validation**: A pre-save "Pre-Flight" check will run before any download to ensure zero classes are missing teachers and no loads are breached.
-3.  **Conflict Override**: Critical errors (Double Booking) block assignments, while non-critical warnings (Daily Load) require Authority confirmation.
+1.  **Setting Defaults**: Open `Timing Settings` (⚙️ icon) to set your global default preset for new sessions.
+2.  **Validation**: A pre-flight check runs before any download to ensure:
+    - All classes have assigned teachers
+    - No workload limits are breached
+    - No constraint violations exist
+3.  **Conflict Handling**:
+    - **Critical errors** (Double Booking) block assignments completely
+    - **Warnings** (Daily Load limits) can be confirmed by authority
 
----
-*© 2024-2025 Heritage Public School - Excellence in Global Education*
+## 🔧 Development Notes
+
+### State Management
+The app uses React Context API with `useReducer` for global state:
+- Teacher and class management
+- Timetable assignments
+- Validation results
+- Session persistence (localStorage)
+
+### Constraint Engine
+The validation engine (`src/utils/engine.ts`) enforces:
+- Real-time conflict detection
+- Workload capacity checks
+- Subject sequence validation
+- Class teacher assignment rules
+
+### Component Communication
+- **Context-based**: Global state via `useTimetable()` hook
+- **Props-based**: Local component state for UI interactions
+- **Event handlers**: Modal confirmations and data updates
+
+## 📄 License
+© 2024-2025 Heritage Public School - Excellence in Global Education
+
+## 🤝 Contributing
+Contributions are welcome! Please follow these guidelines:
+1. Create a feature branch: `git checkout -b feature/your-feature`
+2. Make meaningful commits with clear messages
+3. Test thoroughly before submitting changes
+4. Push to your fork and create a pull request
