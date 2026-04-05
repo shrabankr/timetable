@@ -1,6 +1,8 @@
-# Heritage Public School - Dynamic Timetable Management System
+# Dynamic Timetable Management System
 
-A professional, constraint-based School Timetable & Routine Management platform built with **React**, **TypeScript**, and **Vite**. This system provides a robust engine to manage teacher workloads, subject sequences, and document branding with automated validation logic.
+A professional, constraint-based School/Institution Timetable & Routine Management platform built with **React**, **TypeScript**, and **Vite**. This system provides a robust engine to manage teacher workloads, subject sequences, and document branding with automated validation logic.
+
+Designed as a white-label solution, it's easy to customize for any educational institution.
 
 ## 🚀 Key Features
 
@@ -104,6 +106,39 @@ src/
 └── main.tsx            # Entry point
 ```
 
+## 🎨 Customization
+
+### Organization Settings
+The system is fully customizable for any institution. Customize your organization details:
+
+**Default Settings:**
+- **Organization Name**: "Your School Name"
+- **Organization Tagline**: "Excellence in Education"
+- **Document Signature Lines**: Configurable for 4 approval authorities
+
+**How to Customize:**
+1. Edit `src/data/mockData.ts` - Update the `initialState.schoolSettings` object:
+   ```typescript
+   schoolSettings: {
+     organizationName: 'Your Institution Name',
+     organizationTagline: 'Your Motto',
+     signatureLines: {
+       line1: 'Authority 1',
+       line2: 'Authority 2',
+       line3: 'Authority 3',
+       line4: 'Authority 4'
+     }
+   }
+   ```
+
+2. Alternatively, persist custom settings in code by modifying the state managed by `TimetableContext.tsx`
+
+The customization is reflected in:
+- Header display
+- PDF and PNG exports
+- Excel file headers
+- Printed documents
+
 ## 📝 Usage Tips
 1.  **Setting Defaults**: Open `Timing Settings` (⚙️ icon) to set your global default preset for new sessions.
 2.  **Validation**: A pre-flight check runs before any download to ensure:
@@ -118,6 +153,7 @@ src/
 
 ### State Management
 The app uses React Context API with `useReducer` for global state:
+- Organization/school settings (name, branding)
 - Teacher and class management
 - Timetable assignments
 - Validation results
@@ -136,7 +172,9 @@ The validation engine (`src/utils/engine.ts`) enforces:
 - **Event handlers**: Modal confirmations and data updates
 
 ## 📄 License
-© 2024-2025 Heritage Public School - Excellence in Global Education
+© 2024-2025 Open Source - MIT License
+
+This project is provided as-is for educational institutions. Feel free to fork, modify, and deploy for your school or institution.
 
 ## 🤝 Contributing
 Contributions are welcome! Please follow these guidelines:

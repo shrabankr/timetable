@@ -66,9 +66,21 @@ export interface ValidationResult {
   conflicts?: string[];
 }
 
+export interface SchoolSettings {
+  organizationName: string;
+  organizationTagline: string;
+  signatureLines: {
+    line1: string;
+    line2: string;
+    line3: string;
+    line4: string;
+  };
+}
+
 export interface AppState {
   academicSession: string;
   timingMode: TimingMode;
+  schoolSettings: SchoolSettings;
   teachers: Teacher[];
   subjects: Subject[];
   classes: ClassSection[];

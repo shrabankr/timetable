@@ -158,11 +158,11 @@ export default function Header({ activeDay, setActiveDay, days }: HeaderProps) {
 
   const exportAsExcel = () => {
     try {
-      const { assignments, classes, teachers, subjects } = state;
+      const { assignments, classes, teachers, subjects, schoolSettings } = state;
       const excelData: any[] = [];
       
-      excelData.push(["HERITAGE PUBLIC SCHOOL", "", "", "", "Daily Routine Timetable"]);
-      excelData.push(["Excellence in Global Education", "", "", "", `Date/Day: ${activeDay}`]);
+      excelData.push([schoolSettings.organizationName.toUpperCase(), "", "", "", "Daily Routine Timetable"]);
+      excelData.push([schoolSettings.organizationTagline, "", "", "", `Date/Day: ${activeDay}`]);
       excelData.push([]);
       excelData.push(["Day", "Slot", "Class", "Teacher Code", "Teacher Name", "Subject"]);
 

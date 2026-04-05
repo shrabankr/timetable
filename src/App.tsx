@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { GraduationCap } from 'lucide-react';
+import { useTimetable } from './store/TimetableContext';
 import TimetableGrid from './components/TimetableGrid';
 import TeacherPanel from './components/TeacherPanel';
 import Header from './components/Header';
 
 function AppContent() {
+  const { state } = useTimetable();
   const [activeDay, setActiveDay] = useState('Monday');
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -21,8 +23,8 @@ function AppContent() {
                  <GraduationCap size={32} />
                </div>
                <div>
-                  <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-0.5px' }}>Heritage Public School</h2>
-                  <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>Excellence in Global Education</p>
+                  <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-0.5px' }}>{state.schoolSettings.organizationName}</h2>
+                  <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>{state.schoolSettings.organizationTagline}</p>
                </div>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -36,19 +38,19 @@ function AppContent() {
           <div className="document-footer" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5rem', paddingTop: '1rem', pageBreakInside: 'avoid' }}>
              <div style={{ textAlign: 'center' }}>
                 <div style={{ borderBottom: '1px solid #334155', width: '140px', marginBottom: '0.5rem' }}></div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Timetable Incharge 1</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>{state.schoolSettings.signatureLines.line1}</div>
              </div>
              <div style={{ textAlign: 'center' }}>
                 <div style={{ borderBottom: '1px solid #334155', width: '140px', marginBottom: '0.5rem' }}></div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Timetable Incharge 2</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>{state.schoolSettings.signatureLines.line2}</div>
              </div>
              <div style={{ textAlign: 'center' }}>
                 <div style={{ borderBottom: '1px solid #334155', width: '140px', marginBottom: '0.5rem' }}></div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Vice Principal</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>{state.schoolSettings.signatureLines.line3}</div>
              </div>
              <div style={{ textAlign: 'center' }}>
                 <div style={{ borderBottom: '1px solid #334155', width: '140px', marginBottom: '0.5rem' }}></div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Principal</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>{state.schoolSettings.signatureLines.line4}</div>
              </div>
           </div>
 

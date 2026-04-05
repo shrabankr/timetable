@@ -155,6 +155,16 @@ const generateZeroPeriodsFixed = (): Assignment[] => {
 export const initialState: AppState = {
   academicSession: '2024-2025',
   timingMode: 'Official',
+  schoolSettings: {
+    organizationName: 'Your School Name',
+    organizationTagline: 'Excellence in Education',
+    signatureLines: {
+      line1: 'Timetable Incharge 1',
+      line2: 'Timetable Incharge 2',
+      line3: 'Vice Principal',
+      line4: 'Principal'
+    }
+  },
   teachers,
   subjects,
   classes,

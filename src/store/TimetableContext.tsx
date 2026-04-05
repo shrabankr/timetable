@@ -15,6 +15,7 @@ type Action =
   | { type: 'ADD_ALLOCATION'; payload: SubjectAllocation }
   | { type: 'SET_ALLOCATIONS'; payload: SubjectAllocation[] }
   | { type: 'SET_ACADEMIC_SESSION'; payload: string }
+  | { type: 'SET_SCHOOL_SETTINGS'; payload: any }
   | { type: 'UPDATE_TIME_SLOTS'; payload: { group: ClassGroup; mode: TimingMode; slots: TimeSlot[] } };
 
 const TimetableContext = createContext<{
@@ -26,6 +27,8 @@ const timetableReducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
     case 'SET_TIMING_MODE':
       return { ...state, timingMode: action.payload };
+    case 'SET_SCHOOL_SETTINGS':
+      return { ...state, schoolSettings: action.payload };
     case 'UPDATE_TIME_SLOTS':
       return {
         ...state,
