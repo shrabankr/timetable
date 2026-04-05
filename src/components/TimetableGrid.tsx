@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useTimetable } from '../store/TimetableContext';
-import type { Assignment, ClassSection, TimeSlot, ClassGroup, ValidationResult } from '../types';
+import type { Assignment, ClassSection, ClassGroup } from '../types';
 import { validateAssignment } from '../utils/engine';
 
 interface TimetableGridProps {
@@ -9,7 +9,6 @@ interface TimetableGridProps {
 
 export default function TimetableGrid({ activeDay }: TimetableGridProps) {
   const { state, dispatch } = useTimetable();
-  const [validationPopup, setValidationPopup] = useState<(ValidationResult & { x: number, y: number }) | null>(null);
 
   const handleDrop = (e: React.DragEvent<HTMLTableCellElement>, classId: string, slotId: string) => {
     e.preventDefault();

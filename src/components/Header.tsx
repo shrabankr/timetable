@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { LayoutGrid, Zap, Image as ImageIcon, FileText, Table, MessageCircle, Mail, Trash2, Save, Check, Settings, Users, Printer, Database, UploadCloud, DownloadCloud } from 'lucide-react';
+import { LayoutGrid, Zap, Image as ImageIcon, FileText, Table, MessageCircle, Mail, Trash2, Save, Check, Settings, Users, Printer, UploadCloud, DownloadCloud } from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
 import type { TimingMode } from '../types';
 import html2canvas from 'html2canvas';

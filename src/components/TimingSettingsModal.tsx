@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
 import type { TimingMode, ClassGroup, TimeSlot } from '../types';

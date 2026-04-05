@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Save, Plus } from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
 

@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
-import { useTimetable } from './store/TimetableContext';
-import { Calendar, Settings, Zap, Users, ShieldAlert, GraduationCap } from 'lucide-react';
+import { useState } from 'react';
+import { GraduationCap } from 'lucide-react';
 import TimetableGrid from './components/TimetableGrid';
 import TeacherPanel from './components/TeacherPanel';
 import Header from './components/Header';
 
 function AppContent() {
-  const { state, dispatch } = useTimetable();
   const [activeDay, setActiveDay] = useState('Monday');
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
