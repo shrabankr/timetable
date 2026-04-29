@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useTimetable } from '../store/TimetableContext';
-import { Lock, Plus, X, GitMerge } from 'lucide-react';
+import { Lock, Plus, X, GitMerge, Sparkles } from 'lucide-react';
 import { useToast } from './Toast';
 import type { ClassSection, TimeSlot } from '../types';
 
@@ -253,15 +253,17 @@ export default function TimetableGrid({ activeDay }: TimetableGridProps) {
                                 }
                               }}
                              onDoubleClick={() => {
-                               if (!assignment.isLocked) {
+                               if (assignment && !assignment.isLocked) {
                                  dispatch({ type: 'REMOVE_ASSIGNMENT', payload: assignment.id });
-                                 toast('info', 'Removed', `${teacher.name} removed from ${cls.grade}-${cls.section}.`);
+                                 toast('info', 'Removed', `${teacher?.name} removed from ${cls.grade}-${cls.section}.`);
                                }
                              }}
                              onContextMenu={(e) => {
                                e.preventDefault();
-                               dispatch({ type: 'TOGGLE_LOCK', payload: assignment.id });
-                               toast('info', 'Lock Toggled', `Period is now ${!assignment.isLocked ? 'locked' : 'unlocked'}.`);
+                               if (assignment) {
+                                 dispatch({ type: 'TOGGLE_LOCK', payload: assignment.id });
+                                 toast('info', 'Lock Toggled', `Period is now ${!assignment.isLocked ? 'locked' : 'unlocked'}.`);
+                               }
                              }}
                              title={currentMerge ? `Merged Period (Scope: ${currentMerge.scope})` : assignment?.isLocked ? 'Locked (Right-click to unlock)' : 'Double-click to remove. Right-click to lock. Drag to swap. Alt+Click to select.'}
                            >

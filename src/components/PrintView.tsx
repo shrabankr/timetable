@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo } from 'react';
-import { Printer, X, Download } from 'lucide-react';
+import { useEffect } from 'react';
+import { Printer, X } from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
 import type { PrintConfig } from './PrintOptionsModal';
 
@@ -65,26 +65,34 @@ export default function PrintView({ config, onClose }: PrintViewProps) {
                     }
 
                     const asgn = state.assignments.find(a => a.classSectionId === cls.id && a.day === day && a.slotId === slot.id);
-                    const currentMerge = activeMerges.find(m => 
-                      m.classSectionIds.includes(cls.id) && 
-                      asgn && 
-                      m.teacherId === asgn.teacherId && 
-                      m.subjectId === asgn.subjectId
-                    );
+                    const currentMerge = activeMerges.find(m => {
+                      const isClassInMerge = m.classSectionIds.includes(cls.id);
+                      if (!isClassInMerge) return false;
+                      if (m.isWholeDay) return true;
+                      return asgn && m.teacherId === asgn.teacherId && m.subjectId === asgn.subjectId;
+                    });
 
-                    if (!asgn) return <td key={slot.id} className="border-r border-black"></td>;
+                    if (!asgn && !(currentMerge && currentMerge.isWholeDay)) {
+                      return <td key={slot.id} className="border-r border-black"></td>;
+                    }
                     
-                    const teacher = state.teachers.find(t => t.id === asgn.teacherId);
-                    const subject = state.subjects.find(s => s.id === asgn.subjectId);
+                    const teacher = asgn 
+                      ? state.teachers.find(t => t.id === asgn.teacherId)
+                      : (currentMerge ? state.teachers.find(t => t.id === currentMerge.teacherId) : null);
+                      
+                    const subject = asgn
+                      ? state.subjects.find(s => s.id === asgn.subjectId)
+                      : (currentMerge ? state.subjects.find(s => s.id === currentMerge.subjectId) : null);
+
                     const isZero = slot.id === 'p0';
 
                     return (
                       <td key={slot.id} className={`border-r border-black p-1 text-center ${currentMerge ? 'bg-zinc-50' : ''}`}>
                         <div className="flex flex-col items-center leading-tight">
                            <div className="font-bold text-[0.65rem] text-black uppercase">
-                              {isZero ? 'ASM/ATTN' : subject?.name}
+                              {isZero && !currentMerge?.isWholeDay ? 'ASM/ATTN' : subject?.name || 'SPECIAL EVENT'}
                            </div>
-                           <div className="font-bold text-zinc-600 text-[0.55rem] italic mt-0.5">({teacher?.code})</div>
+                           <div className="font-bold text-zinc-600 text-[0.55rem] italic mt-0.5">({teacher?.code || '---'})</div>
                         </div>
                       </td>
                     );

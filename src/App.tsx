@@ -7,12 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   MonitorPlay,
-  Clock,
-  ShieldCheck,
   Sparkles,
-  Menu,
   CheckCircle2,
-  Plus,
   X,
   BookOpen,
   GraduationCap,
@@ -35,8 +31,7 @@ import PrintView from './components/PrintView';
 type MainView = 'overview' | 'workspace' | 'allotment' | 'faculty' | 'administrative' | 'insights' | 'help' | 'subjects' | 'classes';
 
 function AppContent() {
-  const { state, dispatch } = useTimetable();
-  const { toast } = useToast();
+  const { state } = useTimetable();
   const [activeView, setActiveView] = useState<MainView>('workspace');
   
   const realToday = useMemo(() => {

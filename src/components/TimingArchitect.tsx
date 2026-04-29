@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Save, Clock, Zap, ArrowRight, Info, Coffee, BookOpen, ChevronRight, Printer, Share2, ChevronDown, FileText, FileSpreadsheet, Image, MessageCircle, Mail, Code } from 'lucide-react';
+import { Save, ArrowRight, Info, Coffee, ChevronDown, FileText, FileSpreadsheet, Image, MessageCircle, Mail, Code, Printer, Share2 } from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
 import { useToast } from './Toast';
 import type { TimingMode, ClassGroup, TimeSlot } from '../types';
@@ -78,62 +78,67 @@ export default function TimingArchitect() {
     const html = `
       <html>
         <head>
-          <title>${state.schoolSettings.organizationName} - Master Schedule</title>
+          <title>${state.schoolSettings.organizationName} - Timing Framework</title>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
           <style>
-            @page { size: A4; margin: 0; }
-            body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; background: white; }
-            .page-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 30px; }
-            h1 { text-transform: uppercase; margin: 0; font-size: 28px; font-weight: 900; }
-            h2 { color: #475569; margin: 5px 0 0; font-size: 16px; font-weight: 600; }
-            .grid { display: grid; grid-template-cols: 1fr 1fr; gap: 40px; }
-            .group-section h3 { background: #f1f5f9; padding: 10px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; border: 1px solid #e2e8f0; margin-bottom: 15px; text-align: center; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; }
-            th { background-color: #f8fafc; font-weight: 900; }
-            .is-break { background-color: #fff1f2; font-weight: bold; color: #be123c; }
-            .time { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #000; }
-            .footer { position: fixed; bottom: 30px; left: 0; right: 0; text-align: center; font-size: 9px; color: #94a3b8; }
+            @page { size: A4; margin: 15mm; }
+            body { font-family: 'Inter', sans-serif; color: #1e293b; background: white; margin: 0; padding: 0; }
+            .official-header { text-align: center; padding-bottom: 20px; border-bottom: 3px solid #000; margin-bottom: 40px; }
+            .school-name { font-size: 32px; font-weight: 900; text-transform: uppercase; margin: 0; color: #0f172a; letter-spacing: -0.02em; }
+            .tagline { font-size: 14px; font-weight: 700; color: #475569; margin: 5px 0 0; text-transform: uppercase; letter-spacing: 0.1em; }
+            
+            .group-block { margin-bottom: 50px; break-inside: avoid; }
+            .group-header { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; text-align: center; font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2em; color: #334155; margin-bottom: 0; }
+            
+            table { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; }
+            th { border: 1px solid #e2e8f0; padding: 12px 15px; text-align: left; font-size: 11px; font-weight: 900; text-transform: uppercase; color: #64748b; background: white; }
+            td { border: 1px solid #e2e8f0; padding: 12px 15px; text-align: left; font-size: 13px; font-weight: 700; color: #0f172a; }
+            
+            .is-break { background-color: #fff1f2; color: #e11d48; }
+            .is-break td { color: #e11d48; }
+            .span-col { color: #64748b; font-weight: 400; }
+            .is-break .span-col { color: #e11d48; font-weight: 900; }
+            
+            .footer { margin-top: 40px; text-align: center; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
           </style>
         </head>
         <body>
-          <div class="page-header">
-            <h1>${state.schoolSettings.organizationName}</h1>
-            <h2>Institutional Timing Framework — ${activeMode} Mode</h2>
+          <div class="official-header">
+            <h1 class="school-name">${state.schoolSettings.organizationName}</h1>
+            <p class="tagline">Institutional Timing Framework — ${activeMode} Mode</p>
           </div>
           
-          <div class="grid">
-            ${groups.map(group => {
-              const slots = state.timeSlots[group][activeMode];
-              return `
-                <div class="group-section">
-                  <h3>Grade ${group}</h3>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Period</th>
-                        <th>Start</th>
-                        <th>End</th>
-                        <th>Span</th>
+          ${groups.map(group => {
+            const slots = state.timeSlots[group][activeMode];
+            return `
+              <div class="group-block">
+                <div class="group-header">Grade ${group}</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 25%">Period</th>
+                      <th style="width: 25%">Start</th>
+                      <th style="width: 25%">End</th>
+                      <th style="width: 25%">Span</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${slots.map(s => `
+                      <tr class="${s.isBreak ? 'is-break' : ''}">
+                        <td>${s.isBreak ? 'BREAK' : 'P' + s.name}</td>
+                        <td>${s.startTime}</td>
+                        <td>${s.endTime}</td>
+                        <td class="span-col">${getDuration(s.startTime, s.endTime)}m</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      ${slots.map(s => `
-                        <tr class="${s.isBreak ? 'is-break' : ''}">
-                          <td>${s.isBreak ? 'BREAK' : 'P' + s.name}</td>
-                          <td class="time">${s.startTime}</td>
-                          <td class="time">${s.endTime}</td>
-                          <td>${getDuration(s.startTime, s.endTime)}m</td>
-                        </tr>
-                      `).join('')}
-                    </tbody>
-                  </table>
-                </div>
-              `;
-            }).join('')}
-          </div>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `;
+          }).join('')}
 
           <div class="footer">
-            Generated via RoutinePro Enterprise | Session: ${state.academicSession} | Date: ${new Date().toLocaleDateString()}
+            Generated via RoutinePro Enterprise | Academic Session ${state.academicSession} | Official Record
           </div>
           <script>window.print();</script>
         </body>

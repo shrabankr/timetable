@@ -16,7 +16,8 @@ import {
   GitMerge,
   Search,
   Calendar,
-  Sparkles
+  Sparkles,
+  Users
 } from 'lucide-react';
 import { useToast } from './Toast';
 import type { ClassSection, ClassMerge } from '../types';
