@@ -8,13 +8,11 @@ import {
   X, 
   GraduationCap, 
   AlertCircle,
-  FileSpreadsheet,
   Download,
   Upload,
   Layers,
   Link2,
   GitMerge,
-  Search,
   Calendar,
   Sparkles,
   Users
@@ -65,7 +63,7 @@ export default function ClassRegistry() {
     }
   }, [newGrade, state.classes]);
 
-  const validateAssignments = (grade: string, section: string, ctId?: string, mrgId?: string, excludeId?: string) => {
+  const validateAssignments = (grade: string, ctId?: string, mrgId?: string, excludeId?: string) => {
     // 1. Class Teacher Uniqueness
     if (ctId) {
       const alreadyCT = state.classes.find(c => c.id !== excludeId && c.classTeacherId === ctId);
@@ -93,7 +91,7 @@ export default function ClassRegistry() {
       return;
     }
 
-    if (!validateAssignments(newGrade, newSection, newClassTeacherId, newSubjectInchargeId)) return;
+    if (!validateAssignments(newGrade, newClassTeacherId, newSubjectInchargeId)) return;
 
     const id = `cls_${Date.now()}`;
     const newCls: ClassSection = { 

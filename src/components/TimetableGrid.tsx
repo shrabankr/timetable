@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useTimetable } from '../store/TimetableContext';
 import { Lock, Plus, X, GitMerge, Sparkles } from 'lucide-react';
 import { useToast } from './Toast';
-import type { ClassSection, TimeSlot } from '../types';
+import type { ClassSection } from '../types';
 
 interface TimetableGridProps {
   activeDay: string;

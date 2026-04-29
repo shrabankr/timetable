@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { X, Calendar, ShieldCheck, Briefcase, Edit2, TrendingUp, Clock } from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
 

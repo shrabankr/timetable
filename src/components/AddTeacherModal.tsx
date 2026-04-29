@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Save, Plus, Trash2, ShieldCheck, UserCheck, Briefcase } from 'lucide-react';
+import { useState } from 'react';
+import { X, Save, Plus, Trash2, ShieldCheck, Briefcase } from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
 import { useToast } from './Toast';
 import type { Teacher } from '../types';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTimetable } from '../store/TimetableContext';
 import { useToast } from './Toast';
-import { Settings, Clock, Users, Building, AlertTriangle, Plus, Trash2, ShieldAlert } from 'lucide-react';
+import { Settings, Clock, Users, Building, Plus, Trash2, ShieldAlert } from 'lucide-react';
 import TimingArchitect from './TimingArchitect';
 import ClassRegistry from './ClassRegistry';
 

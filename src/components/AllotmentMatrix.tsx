@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTimetable } from '../store/TimetableContext';
-import { Save, UserPlus, ShieldCheck, UserCheck, Sparkles } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useToast } from './Toast';
 
 export default function AllotmentMatrix() {

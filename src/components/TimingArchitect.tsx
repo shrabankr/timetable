@@ -50,24 +50,7 @@ export default function TimingArchitect() {
     toast('info', 'JSON Exported', 'Schedule data has been downloaded.');
   };
 
-  const handleShareAll = () => {
-    const groups: ClassGroup[] = ['VI-X', 'XI-XII'];
-    let text = `🏫 *${state.schoolSettings.organizationName} - COMPLETE MASTER TIMELINE*\n` +
-               `🗓️ Mode: ${activeMode}\n\n`;
 
-    groups.forEach(group => {
-      const slots = state.timeSlots[group][activeMode];
-      text += `---------- GRADE ${group} ----------\n`;
-      text += slots.map(s => {
-        return `${s.isBreak ? '☕ BREAK' : '📖 P' + s.name}: ${s.startTime} - ${s.endTime}`;
-      }).join('\n') + '\n\n';
-    });
-
-    text += `_RoutinePro | Institutional Management_`;
-    navigator.clipboard.writeText(text).then(() => {
-      toast('success', 'Master Copy Ready', 'Institutional timeline for all grades has been copied.');
-    });
-  };
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');

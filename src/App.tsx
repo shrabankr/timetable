@@ -23,7 +23,6 @@ import FacultySidebar from './components/FacultySidebar';
 import AllotmentMatrix from './components/AllotmentMatrix';
 import SubjectRegistry from './components/SubjectRegistry';
 import ClassRegistry from './components/ClassRegistry';
-import { useToast } from './components/Toast';
 import PrintOptionsModal from './components/PrintOptionsModal';
 import type { PrintConfig } from './components/PrintOptionsModal';
 import PrintView from './components/PrintView';

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Printer, Calendar, Users, GraduationCap, FileText, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { X, Printer, Calendar, Users, GraduationCap, FileText } from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
 
 interface PrintOptionsModalProps {

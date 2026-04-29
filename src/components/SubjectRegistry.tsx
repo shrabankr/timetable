@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTimetable } from '../store/TimetableContext';
 import { 
   Plus, 
@@ -7,7 +7,6 @@ import {
   Check, 
   X, 
   BookOpen, 
-  Hash,
   AlertCircle
 } from 'lucide-react';
 import { useToast } from './Toast';
