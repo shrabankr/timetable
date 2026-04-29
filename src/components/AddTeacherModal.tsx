@@ -1,31 +1,69 @@
-import { useState } from 'react';
-import { X, Save, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Save, Plus, Trash2, ShieldCheck, UserCheck, Briefcase } from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
+import { useToast } from './Toast';
+import type { Teacher } from '../types';
 
 interface AddTeacherModalProps {
   onClose: () => void;
+  teacherId?: string; // If provided, we are in EDIT mode
 }
 
-export default function AddTeacherModal({ onClose }: AddTeacherModalProps) {
+export default function AddTeacherModal({ onClose, teacherId }: AddTeacherModalProps) {
   const { state, dispatch } = useTimetable();
+  const { toast } = useToast();
   
-  const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [designation, setDesignation] = useState('');
-  const [subjectId, setSubjectId] = useState(state.subjects[0]?.id || '');
+  const editingTeacher = teacherId ? state.teachers.find(t => t.id === teacherId) : null;
+
+  const [name, setName] = useState(editingTeacher?.name || '');
+  const [code, setCode] = useState(editingTeacher?.code || '');
+  const [designation, setDesignation] = useState(editingTeacher?.designation || '');
+  const [maxLoadPerDay, setMaxLoadPerDay] = useState(editingTeacher?.maxLoadPerDay || 5);
+  const [subjectId, setSubjectId] = useState(editingTeacher?.defaultSubjectId || state.subjects[0]?.id || '');
   
+  // Responsibilities
+  const [responsibilities, setResponsibilities] = useState<string[]>(editingTeacher?.responsibilities || []);
+  const [newResp, setNewResp] = useState('');
+
+  // Class-wise Incharge Roles
+  const [inchargeRoles, setInchargeRoles] = useState<{ classId: string; role: string }[]>(editingTeacher?.inchargeRoles || []);
+  const [selectedClass, setSelectedClass] = useState(state.classes[0]?.id || '');
+  const [selectedRole, setSelectedRole] = useState('Subject Incharge');
+
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectCode, setNewSubjectCode] = useState('');
-  const [newSubjectDaily, setNewSubjectDaily] = useState('');
-  const [newSubjectWeekly, setNewSubjectWeekly] = useState('');
   const [isAddingSubject, setIsAddingSubject] = useState(false);
 
+  const handleAddResp = () => {
+    if (newResp.trim() && !responsibilities.includes(newResp.trim())) {
+      setResponsibilities([...responsibilities, newResp.trim()]);
+      setNewResp('');
+    }
+  };
+
+  const handleAddRole = () => {
+    if (selectedClass && selectedRole) {
+      // Prevent duplicate class roles
+      if (inchargeRoles.some(r => r.classId === selectedClass)) {
+        toast('warning', 'Duplicate Role', 'Teacher already has a role assigned for this class.');
+        return;
+      }
+      setInchargeRoles([...inchargeRoles, { classId: selectedClass, role: selectedRole }]);
+    }
+  };
+
+  const handleRemoveRole = (classId: string) => {
+    setInchargeRoles(inchargeRoles.filter(r => r.classId !== classId));
+  };
+
   const handleSave = () => {
-    if (!name || (!subjectId && !newSubjectName)) return alert("Name and Subject are required");
+    if (!name) {
+      toast('error', 'Missing Fields', 'Teacher name is required.');
+      return;
+    }
     
     let finalSubjectId = subjectId;
     
-    // Add new subject if triggered
     if (isAddingSubject && newSubjectName) {
       const newSubjId = `sub_${Date.now()}`;
       dispatch({ 
@@ -34,101 +72,169 @@ export default function AddTeacherModal({ onClose }: AddTeacherModalProps) {
            id: newSubjId, 
            code: newSubjectCode || newSubjectName.substring(0, 3).toUpperCase(),
            name: newSubjectName, 
-           type: 'Core',
-           maxDailyClasses: newSubjectDaily ? parseInt(newSubjectDaily) : undefined,
-           maxWeeklyClasses: newSubjectWeekly ? parseInt(newSubjectWeekly) : undefined
+           type: 'Core'
         }]
       });
       finalSubjectId = newSubjId;
     }
 
-    const tCode = code || name.substring(0, 3).toUpperCase();
+    const tCode = (code || name.substring(0, 3)).toUpperCase();
     
-    const newTeacher = {
-      id: `t_manual_${Date.now()}`,
+    const teacherData: Teacher = {
+      id: editingTeacher?.id || `t_manual_${Date.now()}`,
       name,
       code: tCode,
       designation,
-      maxLoadPerDay: 5,
-      defaultSubjectId: finalSubjectId
+      maxLoadPerDay,
+      defaultSubjectId: finalSubjectId,
+      responsibilities,
+      inchargeRoles
     };
 
-    dispatch({ type: 'SET_TEACHERS', payload: [...state.teachers, newTeacher] });
-    
-    // Auto-create allocation
-    dispatch({ 
-      type: 'ADD_ALLOCATION', 
-      payload: { id: `alloc_${Date.now()}`, classSectionId: '', subjectId: finalSubjectId, teacherId: newTeacher.id } 
-    });
-
+    if (editingTeacher) {
+      dispatch({ 
+        type: 'SET_TEACHERS', 
+        payload: state.teachers.map(t => t.id === editingTeacher.id ? teacherData : t) 
+      });
+      toast('success', 'Profile Updated', `${name}'s professional profile has been saved.`);
+    } else {
+      dispatch({ type: 'SET_TEACHERS', payload: [...state.teachers, teacherData] });
+      toast('success', 'Faculty Added', `${name} (${tCode}) has been added to the registry.`);
+    }
     onClose();
   };
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-xl)' }}>
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-container w-[95%] max-w-[600px] animate-fade">
         
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-main)' }}>Add New Record</h2>
-          <button className="icon-btn" onClick={onClose} style={{ border: 'none', background: 'transparent' }}>
-            <X size={24} />
+        <div className="modal-header">
+          <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                <Briefcase size={20} />
+             </div>
+             <div>
+                <h2 className="text-xl font-black text-zinc-900 tracking-tight">{editingTeacher ? 'Update Faculty Profile' : 'New Faculty Registry'}</h2>
+                <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">{editingTeacher ? 'Staff ID: ' + editingTeacher.id : 'Academic Resource'}</p>
+             </div>
+          </div>
+          <button className="p-2 hover:bg-zinc-100 rounded-xl text-zinc-400 transition-colors" onClick={onClose}>
+            <X size={20} />
           </button>
         </div>
 
-        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="modal-body space-y-8 max-h-[75vh] overflow-y-auto pr-2 scrollbar-thin">
           
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Teacher Name *</label>
-            <input type="text" className="select-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John Doe" style={{ width: '100%', padding: '0.5rem' }} />
-          </div>
-
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Code (Auto if blank)</label>
-              <input type="text" className="select-input" value={code} onChange={e => setCode(e.target.value)} placeholder="JOH" style={{ width: '100%', padding: '0.5rem' }} />
+          {/* Basic Info */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest">Basic Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="modal-label">Full Name *</label>
+                <input type="text" className="modal-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John Doe" />
+              </div>
+              <div>
+                <label className="modal-label">Employee Code / Shortname</label>
+                <input type="text" className="modal-input uppercase" value={code} onChange={e => setCode(e.target.value)} placeholder="JOH" />
+              </div>
+              <div>
+                <label className="modal-label">Max Load / Day</label>
+                <input type="number" min="1" max="10" className="modal-input" value={maxLoadPerDay} onChange={e => setMaxLoadPerDay(parseInt(e.target.value) || 5)} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="modal-label">Designation</label>
+                <input type="text" className="modal-input" value={designation} onChange={e => setDesignation(e.target.value)} placeholder="PGT (Math), TGT..." />
+              </div>
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Designation</label>
-              <input type="text" className="select-input" value={designation} onChange={e => setDesignation(e.target.value)} placeholder="PGT, TGT..." style={{ width: '100%', padding: '0.5rem' }} />
-            </div>
-          </div>
+          </section>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Primary Subject *</label>
-            
+          {/* Primary Subject */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest">Subject Expertise</h3>
             {!isAddingSubject ? (
-               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                 <select className="select-input" value={subjectId} onChange={e => setSubjectId(e.target.value)} style={{ flex: 1, padding: '0.5rem' }}>
+               <div className="flex gap-2">
+                 <select className="modal-select flex-1" value={subjectId} onChange={e => setSubjectId(e.target.value)}>
+                   <option value="">-- Select Primary Subject --</option>
                    {state.subjects.map(s => (
-                     <option key={s.id} value={s.id}>{s.name}</option>
+                     <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
                    ))}
                  </select>
-                 <button className="btn" onClick={() => setIsAddingSubject(true)} title="Create New Subject" style={{ padding: '0.5rem' }}>
-                    <Plus size={16} />
+                 <button className="w-10 h-10 flex items-center justify-center border border-zinc-200 rounded-xl hover:bg-zinc-50 text-zinc-400" onClick={() => setIsAddingSubject(true)}>
+                    <Plus size={18} />
                  </button>
                </div>
             ) : (
-               <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
-                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                   <input type="text" className="select-input" value={newSubjectName} onChange={e => setNewSubjectName(e.target.value)} placeholder="New Subject Name" style={{ flex: 1, padding: '0.5rem' }} autoFocus />
-                   <input type="text" className="select-input" value={newSubjectCode} onChange={e => setNewSubjectCode(e.target.value)} placeholder="Code (e.g. MAT)" style={{ width: '100px', padding: '0.5rem' }} />
-                   <button className="btn" onClick={() => setIsAddingSubject(false)} title="Cancel" style={{ padding: '0.5rem', background: '#f8fafc' }}>
-                      <X size={16} />
-                   </button>
-                 </div>
-                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                   <input type="number" className="select-input" value={newSubjectDaily} onChange={e => setNewSubjectDaily(e.target.value)} placeholder="Max Daily Limit (e.g. 2)" style={{ flex: 1, padding: '0.5rem' }} />
-                   <input type="number" className="select-input" value={newSubjectWeekly} onChange={e => setNewSubjectWeekly(e.target.value)} placeholder="Max Weekly (e.g. 10)" style={{ flex: 1, padding: '0.5rem' }} />
-                 </div>
+               <div className="flex gap-2 p-4 bg-zinc-50 rounded-2xl border border-zinc-200 border-dashed">
+                 <input type="text" className="modal-input flex-1" value={newSubjectName} onChange={e => setNewSubjectName(e.target.value)} placeholder="Subject Name" autoFocus />
+                 <input type="text" className="modal-input w-24" value={newSubjectCode} onChange={e => setNewSubjectCode(e.target.value)} placeholder="Code" />
+                 <button className="w-10 h-10 flex items-center justify-center text-zinc-400" onClick={() => setIsAddingSubject(false)}><X size={18} /></button>
                </div>
             )}
-          </div>
+          </section>
+
+          {/* Class-wise Incharge Roles */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest">Class-wise Incharge Roles</h3>
+            <div className="flex gap-2">
+              <select className="modal-select flex-1" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+                {state.classes.map(c => <option key={c.id} value={c.id}>{c.grade}-{c.section}</option>)}
+              </select>
+              <select className="modal-select flex-1" value={selectedRole} onChange={e => setSelectedRole(e.target.value)}>
+                <option value="Subject Incharge">Subject Incharge</option>
+                <option value="Exam Incharge">Exam Incharge</option>
+                <option value="Activity Incharge">Activity Incharge</option>
+                <option value="Coordinator">Coordinator</option>
+              </select>
+              <button className="btn-primary-modal !w-auto px-4" onClick={handleAddRole}>Assign</button>
+            </div>
+            <div className="space-y-2">
+              {inchargeRoles.map(role => {
+                const cls = state.classes.find(c => c.id === role.classId);
+                return (
+                  <div key={role.classId} className="flex items-center justify-between p-3 bg-zinc-50 rounded-xl border border-zinc-100">
+                    <div className="flex items-center gap-3">
+                       <div className="p-1.5 bg-white rounded-lg text-indigo-600 shadow-sm"><ShieldCheck size={14} /></div>
+                       <span className="text-xs font-bold text-zinc-700">{cls?.grade}-{cls?.section}</span>
+                       <span className="text-xs font-medium text-zinc-400">—</span>
+                       <span className="text-xs font-bold text-indigo-600">{role.role}</span>
+                    </div>
+                    <button onClick={() => handleRemoveRole(role.classId)} className="text-zinc-300 hover:text-rose-500 transition-colors"><Trash2 size={14} /></button>
+                  </div>
+                );
+              })}
+              {inchargeRoles.length === 0 && <p className="text-[0.7rem] text-zinc-400 italic text-center py-2">No class-wise roles assigned.</p>}
+            </div>
+          </section>
+
+          {/* Responsibilities */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest">Other Responsibilities</h3>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                className="modal-input flex-1" 
+                value={newResp} 
+                onChange={e => setNewResp(e.target.value)} 
+                placeholder="e.g. Exam Cell, HOD Math" 
+                onKeyDown={e => e.key === 'Enter' && handleAddResp()}
+              />
+              <button className="btn-primary-modal !w-auto px-4" onClick={handleAddResp}>Add</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {responsibilities.map(resp => (
+                <span key={resp} className="flex items-center gap-2 px-3 py-1.5 bg-white text-zinc-700 text-[0.7rem] font-bold rounded-xl border border-zinc-200 group hover:border-rose-200 hover:bg-rose-50 transition-all">
+                  {resp}
+                  <button onClick={() => setResponsibilities(responsibilities.filter(r => r !== resp))} className="text-zinc-300 hover:text-rose-500"><X size={12} /></button>
+                </span>
+              ))}
+            </div>
+          </section>
         </div>
 
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-          <button className="btn" onClick={onClose} style={{ border: '1px solid var(--border)' }}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>
-            <Save size={18} /> Add Record
+        <div className="modal-footer">
+          <button className="btn-secondary-modal" onClick={onClose}>Cancel</button>
+          <button className="btn-primary-modal" onClick={handleSave}>
+            <Save size={18} /> {editingTeacher ? 'Update Profile' : 'Save Faculty'}
           </button>
         </div>
 

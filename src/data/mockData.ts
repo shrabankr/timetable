@@ -1,4 +1,5 @@
-import type { AppState, TimeSlot, Teacher, Subject, ClassSection, SubjectAllocation, Assignment } from '../types';
+import type { AppState, TimeSlot, Teacher, Subject, ClassSection, SubjectAllocation, Assignment, ConstraintSettings } from '../types';
+import { getCurrentAcademicSession, getRecommendedSessions, getDefaultSessionStart, getDefaultSessionEnd } from '../utils/session';
 
 const generateTimeSlots = (startHour: number, startMin: number, periods: number, periodDuration: number, breakAfter: number, breakDuration: number, zeroPeriodDuration: number): TimeSlot[] => {
   const slots: TimeSlot[] = [];
@@ -8,7 +9,7 @@ const generateTimeSlots = (startHour: number, startMin: number, periods: number,
   const formatT = (h: number, m: number) => `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   const addMins = (h: number, m: number, minsToAdd: number) => {
     let newM = m + minsToAdd;
-    let newH = h + Math.floor(newM / 60);
+    const newH = h + Math.floor(newM / 60);
     newM = newM % 60;
     return { h: newH, m: newM };
   };
@@ -79,12 +80,13 @@ const generateTeachers = (): Teacher[] => {
 const teachers: Teacher[] = generateTeachers();
 
 const subjects: Subject[] = [
-  { id: 's1', code: 'ENG', name: 'English', type: 'Core' },
-  { id: 's2', code: 'MAT', name: 'Math', type: 'Core' },
-  { id: 's3', code: 'SCI', name: 'Science', type: 'Core' },
-  { id: 's4', code: 'HIS', name: 'History', type: 'Core' },
-  { id: 's5', code: 'PE', name: 'PE', type: 'Skill' },
-  { id: 's6', code: 'COM', name: 'Computer', type: 'Skill' },
+  { id: 's1', code: 'ENG', name: 'English', type: 'Core', category: 'Academic' },
+  { id: 's2', code: 'MAT', name: 'Math', type: 'Core', category: 'Academic' },
+  { id: 's3', code: 'SCI', name: 'Science', type: 'Core', category: 'Academic' },
+  { id: 's4', code: 'HIS', name: 'History', type: 'Core', category: 'Academic' },
+  { id: 's5', code: 'PE', name: 'PE', type: 'Skill', category: 'Academic' },
+  { id: 's6', code: 'COM', name: 'Computer', type: 'Skill', category: 'Academic' },
+  { id: 's_admin', code: 'ATTN', name: 'Attendance & Assembly', type: 'Skill', category: 'Administrative' },
 ];
 
 const generateClasses = (): ClassSection[] => {
@@ -152,8 +154,25 @@ const generateZeroPeriodsFixed = (): Assignment[] => {
   return asgns;
 };
 
+export const defaultConstraints: ConstraintSettings = {
+  maxContiguousV_X: 3,
+  maxContiguousXI_XII: 2,
+  maxContiguousTimeMixed: 120,
+  minGapAfterContiguousMixed: 30,
+  maxDailyPeriodsV_X: 8,
+  maxDailyPeriodsXI_XII: 5,
+  maxDailyPeriodsV_X_Sat: 8,
+  maxDailyPeriodsXI_XII_Sat: 3,
+  maxDailyTimeMixed: 240,
+  maxWeeklyPeriodsMixed: 32,
+  maxWeeklyTimeMixed: 1280,
+  enforceClassTeacherZeroPeriod: true
+};
+
 export const initialState: AppState = {
-  academicSession: '2024-2025',
+  academicSession: getCurrentAcademicSession(),
+  sessionStartDate: getDefaultSessionStart(getCurrentAcademicSession()),
+  sessionEndDate: getDefaultSessionEnd(getCurrentAcademicSession()),
   timingMode: 'Official',
   schoolSettings: {
     organizationName: 'Your School Name',
@@ -165,11 +184,15 @@ export const initialState: AppState = {
       line4: 'Principal'
     }
   },
+  constraints: defaultConstraints,
   teachers,
   subjects,
   classes,
+  classSubjectLimits: [],
   allocations,
+  merges: [],
   assignments: generateZeroPeriodsFixed(),
+  sessions: getRecommendedSessions(),
   timeSlots: {
     'VI-X': {
       'Official': vX_Official,

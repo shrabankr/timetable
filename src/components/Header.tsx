@@ -1,12 +1,23 @@
-import React, { useState, useRef } from 'react';
-import { LayoutGrid, Zap, Image as ImageIcon, FileText, Table, MessageCircle, Mail, Trash2, Save, Check, Settings, Users, Printer, UploadCloud, DownloadCloud } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { 
+  Zap, 
+  Trash2, 
+  Save, 
+  Printer, 
+  Calendar,
+  RotateCcw,
+  RotateCw,
+  ChevronDown,
+  FileText,
+  FileSpreadsheet,
+  Image,
+  Code,
+  MessageCircle,
+  Mail
+} from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
-import type { TimingMode } from '../types';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { useToast } from './Toast';
 import * as XLSX from 'xlsx';
-import TimingSettingsModal from './TimingSettingsModal';
-import ClassManagerModal from './ClassManagerModal';
 
 interface HeaderProps {
   activeDay: string;
@@ -15,401 +26,287 @@ interface HeaderProps {
 }
 
 export default function Header({ activeDay, setActiveDay, days }: HeaderProps) {
-  const { state, dispatch } = useTimetable();
-
-  const handleTimingChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    dispatch({ type: 'SET_TIMING_MODE', payload: e.target.value as TimingMode });
-  };
-
+  const { state, dispatch, canUndo, canRedo } = useTimetable();
+  const { toast } = useToast();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [showSaved, setShowSaved] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showClassManager, setShowClassManager] = useState(false);
+  
+  // Dropdown States
+  const [showGenerateDrop, setShowGenerateDrop] = useState(false);
+  const [showSaveDrop, setShowSaveDrop] = useState(false);
 
-  const dbInputRef = useRef<HTMLInputElement>(null);
+  // Close dropdowns on outside click
+  const generateRef = useRef<HTMLDivElement>(null);
+  const saveRef = useRef<HTMLDivElement>(null);
 
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
-
-  const validateAndExecute = (actionCallback: () => void) => {
-    const errors: string[] = [];
-    const todayAssignments = state.assignments.filter(a => a.day === activeDay);
-
-    // 1. Missing teachers for any class section
-    let missingClasses = 0;
-    state.classes.forEach(cls => {
-      const slots = state.timeSlots[cls.group][state.timingMode].filter(s => !s.isBreak);
-      slots.forEach(slot => {
-         const hasAsgn = todayAssignments.find(a => a.classSectionId === cls.id && a.slotId === slot.id);
-         if (!hasAsgn) missingClasses++;
-      });
-    });
-    
-    if (missingClasses > 0) {
-      errors.push(`${missingClasses} class periods are empty (no teacher assigned).`);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (generateRef.current && !generateRef.current.contains(event.target as Node)) {
+        setShowGenerateDrop(false);
+      }
+      if (saveRef.current && !saveRef.current.contains(event.target as Node)) {
+        setShowSaveDrop(false);
+      }
     }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-    // 2. Overloaded & 3. Free Periods
-    let overloaded = 0;
-    let missingFreeTime = 0;
-    
-    state.teachers.forEach(teacher => {
-       const load = todayAssignments.filter(a => a.teacherId === teacher.id).length;
-       if (load > teacher.maxLoadPerDay) overloaded++;
-       // Ensure at least 1-2 free periods -> 8 slots total, so load shouldn't exceed 6 or 7.
-       if (load >= 7) missingFreeTime++; 
-    });
-
-    if (overloaded > 0) errors.push(`${overloaded} teachers are assigned beyond their max capacity.`);
-    if (missingFreeTime > 0) errors.push(`${missingFreeTime} teachers do not have at least 1-2 free periods.`);
-
-    if (errors.length > 0) {
-      setValidationErrors(errors);
-      setPendingAction(() => actionCallback);
-    } else {
-      actionCallback();
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        if (canUndo) dispatch({ type: 'UNDO' });
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        if (canRedo) dispatch({ type: 'REDO' });
+      }
     }
-  };
-
-  const handleManualSave = () => {
-     localStorage.setItem(`timetable_state_${state.academicSession}`, JSON.stringify(state));
-     localStorage.setItem('timetable_last_session', state.academicSession);
-     setShowSaved(true);
-     setTimeout(() => setShowSaved(false), 2000);
-  };
-
-  const handleSessionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-     dispatch({ type: 'SET_ACADEMIC_SESSION', payload: e.target.value });
-  };
-
-  const handleAutoGen = () => {
-    dispatch({ type: 'AUTO_GENERATE' });
-  };
-
-  const handleClearToday = () => {
-    setShowClearConfirm(true);
-  };
-
-  const confirmClear = () => {
-    dispatch({ type: 'CLEAR_TODAY', payload: activeDay });
-    setShowClearConfirm(false);
-  };
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.value) {
-      setActiveDay(e.target.value);
-    }
-  };
-
-  const getPrintFileName = () => {
-    const d = new Date();
-    const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
-    return `HPS_${activeDay}_${dateStr}`;
-  };
-
-  const exportAsImage = async () => {
-    try {
-      const el = document.getElementById('export-container') as HTMLElement;
-      if (!el) return;
-      const originalOverflow = el.style.overflow;
-      el.style.overflow = 'visible';
-      
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true });
-      el.style.overflow = originalOverflow;
-      
-      const link = document.createElement('a');
-      link.download = `${getPrintFileName()}.png`;
-      link.href = canvas.toDataURL('image/png');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (e) {
-      alert("Error exporting Image: " + e);
-    }
-  };
-
-  const exportAsPDF = async () => {
-    try {
-      const el = document.getElementById('export-container') as HTMLElement;
-      if (!el) return;
-      const originalOverflow = el.style.overflow;
-      el.style.overflow = 'visible';
-      
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true });
-      el.style.overflow = originalOverflow;
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('l', 'pt', [canvas.width, canvas.height]);
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-      
-      const blob = pdf.output('blob');
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${getPrintFileName()}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch(e) {
-      alert("Error exporting PDF: " + e);
-    }
-  };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [canUndo, canRedo, dispatch]);
 
   const exportAsExcel = () => {
-    try {
-      const { assignments, classes, teachers, subjects, schoolSettings } = state;
-      const excelData: any[] = [];
-      
-      excelData.push([schoolSettings.organizationName.toUpperCase(), "", "", "", "Daily Routine Timetable"]);
-      excelData.push([schoolSettings.organizationTagline, "", "", "", `Date/Day: ${activeDay}`]);
-      excelData.push([]);
-      excelData.push(["Day", "Slot", "Class", "Teacher Code", "Teacher Name", "Subject"]);
+    const { assignments, classes, teachers, subjects } = state;
+    const excelData = [
+      ["Official Timetable", "", "", "", ""],
+      ["Session", state.academicSession, "Day", activeDay, ""],
+      [],
+      ["Class", "Slot", "Subject", "Teacher Code", "Teacher Name"]
+    ];
 
-      assignments.forEach(a => {
-          const cls = classes.find(c => c.id === a.classSectionId);
-          const tchr = teachers.find(t => t.id === a.teacherId);
-          const subj = subjects.find(s => s.id === a.subjectId);
-          
-          excelData.push([
-              a.day,
-              a.slotId,
-              cls ? `${cls.grade}-${cls.section}` : 'Unknown',
-              tchr?.code || '',
-              tchr?.name || '',
-              subj?.name || ''
-          ]);
-      });
+    assignments.filter(a => a.day === activeDay).forEach(a => {
+      const cls = classes.find(c => c.id === a.classSectionId);
+      const tchr = teachers.find(t => t.id === a.teacherId);
+      const subj = subjects.find(s => s.id === a.subjectId);
+      excelData.push([
+        cls ? `${cls.grade}-${cls.section}` : '-',
+        a.slotId,
+        subj?.name || '-',
+        tchr?.code || '-',
+        tchr?.name || '-'
+      ]);
+    });
 
-      excelData.push([]);
-      excelData.push([]);
-      excelData.push(["Timetable Incharge 1", "Timetable Incharge 2", "", "Vice Principal", "", "Principal"]);
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Timetable");
+    XLSX.writeFile(wb, `Timetable_${activeDay}.xlsx`);
+    toast('success', 'Excel Exported', `Timetable for ${activeDay} saved as .xlsx`);
+  };
 
-      const worksheet = XLSX.utils.aoa_to_sheet(excelData);
-      
-      // Auto-size columns crudely
-      const wscols = [
-          {wch: 15}, {wch: 10}, {wch: 15}, {wch: 15}, {wch: 25}, {wch: 20}
-      ];
-      worksheet['!cols'] = wscols;
+  const handleUnsupportedExport = (format: string) => {
+    toast('info', `${format} Export`, 'This export format is under development and will be available soon.');
+  };
 
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Timetable");
-      
-      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${getPrintFileName()}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch(e) {
-      alert("Error exporting Excel: " + e);
+  const normalizedDay = useMemo(() => {
+    if (activeDay.includes('-')) {
+      const date = new Date(activeDay);
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      return dayNames[date.getDay()];
     }
-  };
-
-  const shareWhatsApp = () => {
-    const text = encodeURIComponent(`Check out our school routine timetable for ${activeDay} - ${new Date().toLocaleDateString()}!`);
-    window.open(`https://wa.me/?text=${text}`, '_blank');
-  };
-  
-  const shareEmail = () => {
-    const subject = encodeURIComponent(`HPS Timetable: ${activeDay}`);
-    const body = encodeURIComponent(`Please find the updated school timetable attached or at our portal for ${activeDay}, ${new Date().toLocaleDateString()}.\n\n`);
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const exportDB = () => {
-    const data = {
-      teachers: state.teachers,
-      subjects: state.subjects,
-      classes: state.classes,
-      allocations: state.allocations
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `TT_Database_Backup_${Date.now()}.json`;
-    link.click();
-  };
-
-  const importDB = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = JSON.parse(evt.target?.result as string);
-        if (data.teachers) dispatch({ type: 'SET_TEACHERS', payload: data.teachers });
-        if (data.subjects) dispatch({ type: 'SET_SUBJECTS', payload: data.subjects });
-        if (data.classes) dispatch({ type: 'SET_CLASSES', payload: data.classes });
-        if (data.allocations) dispatch({ type: 'SET_ALLOCATIONS', payload: data.allocations });
-        alert("Database Matrix restored successfully!");
-      } catch (err) {
-        alert("Invalid JSON Database file!");
-      }
-    };
-    reader.readAsText(file);
-    if(dbInputRef.current) dbInputRef.current.value = '';
-  };
+    return activeDay;
+  }, [activeDay]);
 
   return (
-    <div className="header">
-      <div className="header-top">
-        <h1>
-          <LayoutGrid className="text-primary-color" size={24} />
-          Dynamic Timetable
-        </h1>
-        
-        <div className="header-actions">
-          <select 
-            className="select-input" 
-            value={state.academicSession} 
-            onChange={handleSessionChange}
-            style={{ fontWeight: 600, background: '#f8fafc', border: '1px solid var(--border)' }}
-            title="Academic Session"
-          >
-            <option value="2023-2024">Session: 2023-24</option>
-            <option value="2024-2025">Session: 2024-25</option>
-            <option value="2025-2026">Session: 2025-26</option>
-          </select>
-          
-          <select 
-            className="select-input" 
-            value={state.timingMode} 
-            onChange={handleTimingChange}
-            style={{ fontWeight: 500 }}
-          >
-            <option value="Official">Official Timing</option>
-            <option value="Summer">Summer Timing</option>
-            <option value="Winter">Winter Timing</option>
-          </select>
-          
-          <button className="icon-btn" onClick={() => setShowSettings(true)} title="Timing Settings" style={{ border: '1px solid var(--border)', background: 'white' }}>
-            <Settings size={18} />
-          </button>
-
-          <button className="icon-btn" onClick={() => setShowClassManager(true)} title="Manage Classes" style={{ border: '1px solid var(--border)', background: 'white' }}>
-            <Users size={18} />
-          </button>
-
-          <div style={{ display: 'flex', border: '1px solid var(--border)', background: 'white', borderRadius: '4px', overflow: 'hidden' }}>
-            <button className="icon-btn" onClick={exportDB} title="Export Core DB (JSON)">
-               <DownloadCloud size={16} />
-            </button>
-            <button className="icon-btn" onClick={() => dbInputRef.current?.click()} title="Import Core DB (JSON)">
-               <UploadCloud size={16} />
-            </button>
-            <input type="file" accept=".json" style={{ display: 'none' }} ref={dbInputRef} onChange={importDB} />
+    <div className="w-full relative">
+      <div className="flex justify-between items-center gap-2 w-full flex-nowrap">
+        {/* Left: Days and Date Select */}
+        <div className="flex items-center gap-1.5 xl:gap-3 flex-shrink-0">
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
+            {days.map(day => (
+              <button 
+                key={day}
+                id={`day-${day.toLowerCase()}`}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  normalizedDay === day 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+                onClick={() => setActiveDay(day)}
+              >
+                {day.substring(0, 3)}
+              </button>
+            ))}
           </div>
           
-          <div className="header-downloads" style={{ display: 'flex', gap: '0.5rem', background: '#f8fafc', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-            <button className="icon-btn" onClick={() => validateAndExecute(exportAsImage)} title="Download PNG" style={{ border: 'none', background: 'white', borderRadius: '4px', boxShadow: 'var(--shadow-sm)' }}>
-              <ImageIcon size={16} color="#8b5cf6" /> <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>PNG</span>
-            </button>
-            <button className="icon-btn" onClick={() => validateAndExecute(exportAsPDF)} title="Download PDF" style={{ border: 'none', background: 'white', borderRadius: '4px', boxShadow: 'var(--shadow-sm)' }}>
-              <FileText size={16} color="#ef4444" /> <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>PDF</span>
-            </button>
-            <button className="icon-btn" onClick={() => validateAndExecute(exportAsExcel)} title="Download Excel" style={{ border: 'none', background: 'white', borderRadius: '4px', boxShadow: 'var(--shadow-sm)' }}>
-              <Table size={16} color="#10b981" /> <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>Excel</span>
-            </button>
+          <div className="relative flex items-center group bg-white border border-slate-200 rounded-lg overflow-hidden group-focus-within:border-indigo-500 transition-colors">
+             <Calendar size={14} className="absolute left-3 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+             <input 
+                type="date" 
+                className="h-9 pl-9 pr-3 bg-transparent text-xs font-bold outline-none text-slate-700 w-32"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) return;
+
+                  const selDate = new Date(val);
+                  const startDate = new Date(state.sessionStartDate);
+                  const endDate = new Date(state.sessionEndDate);
+
+                  if (selDate < startDate || selDate > endDate) {
+                    toast('error', 'Out of Session', `The selected date falls outside the ${state.academicSession} academic session range (${state.sessionStartDate} to ${state.sessionEndDate}).`);
+                  } else {
+                    setActiveDay(val);
+                  }
+                }}
+             />
           </div>
-
-          <div className="header-downloads" style={{ display: 'flex', gap: '0.5rem', background: '#f8fafc', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-            <button className="icon-btn" onClick={() => validateAndExecute(shareWhatsApp)} title="Share on WhatsApp" style={{ border: 'none', background: '#25D366', color: 'white', borderRadius: '4px', boxShadow: 'var(--shadow-sm)' }}>
-              <MessageCircle size={16} />
-            </button>
-            <button className="icon-btn" onClick={() => validateAndExecute(shareEmail)} title="Email Timetable" style={{ border: 'none', background: '#ea4335', color: 'white', borderRadius: '4px', boxShadow: 'var(--shadow-sm)' }}>
-              <Mail size={16} />
-            </button>
-          </div>
-          
-          <button className="btn btn-primary" onClick={handleAutoGen} style={{ marginLeft: '1rem' }}>
-            <Zap size={18} /> Auto Generate
-          </button>
-          
-          <button className="btn" onClick={() => validateAndExecute(handleManualSave)} style={{ border: `1px solid ${showSaved ? '#10b981' : 'var(--primary-color)'}`, color: showSaved ? '#10b981' : 'var(--primary-color)', background: showSaved ? '#ecfdf5' : '#f8fafc' }}>
-            {showSaved ? <Check size={18} /> : <Save size={18} />}
-            {showSaved ? 'Saved!' : 'Save'}
-          </button>
-
-          <button className="btn" onClick={() => validateAndExecute(handlePrint)} style={{ border: '1px solid var(--border)', background: 'white' }} title="Print Document">
-            <Printer size={18} /> Print
-          </button>
-
-          <button className="btn" onClick={handleClearToday} style={{ border: '1px solid #ef4444', color: '#ef4444', background: '#fef2f2' }} title="Clear exact day">
-            <Trash2 size={18} /> Clear
-          </button>
         </div>
-      </div>
 
-      <div className="day-selector" style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: '0.25rem' }}>
-          {days.map(day => (
-            <div 
-              key={day}
-              className={`day-tab ${activeDay === day ? 'active' : ''}`}
-              onClick={() => setActiveDay(day)}
+        {/* Right: Core actions */}
+        <div className="flex flex-nowrap justify-end items-center gap-1.5 xl:gap-2.5 z-50 flex-shrink-0">
+          
+          {/* Undo / Redo — now functional */}
+          <div className="flex bg-zinc-100/50 rounded-lg overflow-hidden border border-zinc-200/60 shadow-inner">
+             <button 
+               id="btn-undo"
+               className={`h-9 w-10 flex items-center justify-center bg-white hover:bg-zinc-50 transition-colors active:bg-zinc-100 ${canUndo ? 'text-zinc-600' : 'text-zinc-300 cursor-not-allowed'}`}
+               title="Undo (Ctrl+Z)"
+               onClick={() => canUndo && dispatch({ type: 'UNDO' })}
+               disabled={!canUndo}
+             >
+                <RotateCcw size={14} />
+             </button>
+             <div className="w-px h-9 bg-zinc-200"></div>
+             <button 
+               id="btn-redo"
+               className={`h-9 w-10 flex items-center justify-center bg-white hover:bg-zinc-50 transition-colors active:bg-zinc-100 ${canRedo ? 'text-zinc-600' : 'text-zinc-300 cursor-not-allowed'}`}
+               title="Redo (Ctrl+Y)"
+               onClick={() => canRedo && dispatch({ type: 'REDO' })}
+               disabled={!canRedo}
+             >
+                <RotateCw size={14} />
+             </button>
+          </div>
+
+          <div className="w-px h-5 bg-zinc-200 mx-1 hidden sm:block"></div>
+
+          {/* Generate Dropdown */}
+          <div className="relative" ref={generateRef}>
+            <button 
+              id="btn-generate"
+              className="group h-9 px-2.5 hover:px-3 flex items-center bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 shadow-[0_2px_8px_rgba(24,24,27,0.25)] transition-all duration-300 active:scale-95 whitespace-nowrap overflow-hidden" 
+              onClick={() => setShowGenerateDrop(!showGenerateDrop)}
+              title="Generate Engine"
             >
-              {day.substring(0, 3)}
-            </div>
-          ))}
-        </div>
-        
-        <div style={{ padding: '0 0.5rem', display: 'flex', alignItems: 'center', borderLeft: '1px solid var(--border)' }}>
-           <input 
-              type="date" 
-              className="select-input" 
-              style={{ border: 'none', background: 'transparent', width: 'auto', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
-              value={activeDay.length > 10 ? activeDay : ''}
-              onChange={handleDateChange}
-              title="Pick specific previous/future date"
-           />
+              <Zap size={13} className="text-zinc-300 flex-shrink-0" /> 
+              <div className="flex items-center max-w-0 opacity-0 group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-in-out">
+                <span>Generate Engine</span>
+                <ChevronDown size={13} className="ml-0.5 opacity-60" />
+              </div>
+            </button>
+            
+            {showGenerateDrop && (
+              <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-zinc-200 shadow-xl rounded-2xl overflow-hidden z-[999] animate-fade p-1.5">
+                 <button 
+                   id="gen-today"
+                   className="w-full text-left px-3 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 rounded-lg flex items-center justify-between transition-colors mb-1" 
+                   onClick={() => { 
+                     dispatch({ type: 'AUTO_GENERATE', payload: activeDay }); 
+                     setShowGenerateDrop(false); 
+                     toast('success', 'Generated', `Timetable generated for ${activeDay}.`);
+                   }}
+                 >
+                   Generate for Today <Zap size={12} className="text-zinc-400" />
+                 </button>
+                 <button 
+                   id="gen-all"
+                   className="w-full text-left px-3 py-2.5 text-xs font-black text-indigo-700 hover:bg-indigo-50 rounded-lg flex items-center justify-between transition-colors" 
+                   onClick={() => { 
+                     dispatch({ type: 'AUTO_GENERATE' }); 
+                     setShowGenerateDrop(false); 
+                     toast('success', 'Full Generate', 'Timetable generated for all days.');
+                   }}
+                 >
+                   Generate All Days <Zap size={12} className="text-indigo-500" />
+                 </button>
+              </div>
+            )}
+          </div>
+
+          {/* Save Dropdown */}
+          <div className="relative" ref={saveRef}>
+            <button 
+              id="btn-export"
+              className="group h-9 px-2.5 hover:px-3 flex items-center bg-white border border-zinc-200 text-zinc-700 rounded-lg text-xs font-bold hover:bg-zinc-50 shadow-sm transition-all duration-300 whitespace-nowrap overflow-hidden" 
+              onClick={() => setShowSaveDrop(!showSaveDrop)}
+              title="Save/Export"
+            >
+              <Save size={13} className="text-zinc-400 flex-shrink-0" /> 
+              <div className="flex items-center max-w-0 opacity-0 group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-in-out">
+                <span>Save/Export</span>
+                <ChevronDown size={13} className="ml-0.5 opacity-40" />
+              </div>
+            </button>
+
+            {showSaveDrop && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-zinc-200 shadow-xl rounded-2xl overflow-hidden z-[999] animate-fade p-1.5">
+                 <button className="w-full text-left px-3 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 rounded-lg flex items-center gap-2 mb-0.5" onClick={() => { handleUnsupportedExport('PDF'); setShowSaveDrop(false); }}>
+                   <div className="p-1 rounded bg-rose-50"><FileText size={12} className="text-rose-500" /></div> Portable PDF
+                 </button>
+                 <button className="w-full text-left px-3 py-2.5 text-xs font-bold text-zinc-700 hover:bg-emerald-50 rounded-lg flex items-center gap-2 mb-0.5" onClick={() => { exportAsExcel(); setShowSaveDrop(false); }}>
+                   <div className="p-1 rounded bg-emerald-100/50"><FileSpreadsheet size={12} className="text-emerald-600" /></div> Excel Matrix
+                 </button>
+                 <button className="w-full text-left px-3 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 rounded-lg flex items-center gap-2 mb-0.5" onClick={() => { handleUnsupportedExport('JPG'); setShowSaveDrop(false); }}>
+                   <div className="p-1 rounded bg-amber-50"><Image size={12} className="text-amber-500" /></div> JPG Graphic
+                 </button>
+                 <button className="w-full text-left px-3 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 rounded-lg flex items-center gap-2 mb-0.5" onClick={() => { handleUnsupportedExport('PNG'); setShowSaveDrop(false); }}>
+                   <div className="p-1 rounded bg-indigo-50"><Image size={12} className="text-indigo-500" /></div> PNG Graphic
+                 </button>
+                 <div className="w-full h-px bg-zinc-100 my-1"></div>
+                 <button className="w-full text-left px-3 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 rounded-lg flex items-center gap-2 mb-0.5" onClick={() => { handleUnsupportedExport('WhatsApp'); setShowSaveDrop(false); }}>
+                   <div className="p-1 rounded bg-emerald-50"><MessageCircle size={12} className="text-emerald-500" /></div> Share via WhatsApp
+                 </button>
+                 <button className="w-full text-left px-3 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 rounded-lg flex items-center gap-2 mb-0.5" onClick={() => { handleUnsupportedExport('Email'); setShowSaveDrop(false); }}>
+                   <div className="p-1 rounded bg-blue-50"><Mail size={12} className="text-blue-500" /></div> Share via Email
+                 </button>
+                 <div className="w-full h-px bg-zinc-100 my-1"></div>
+                 <button className="w-full text-left px-3 py-2 text-[0.65rem] font-bold text-zinc-500 hover:bg-zinc-50 rounded-lg flex items-center gap-2" onClick={() => { handleUnsupportedExport('JSON'); setShowSaveDrop(false); }}>
+                   <Code size={11} className="text-zinc-400" /> Internal Code JSON
+                 </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="w-px h-5 bg-zinc-200 mx-1 hidden sm:block"></div>
+
+          {/* Quick Primary Actions */}
+          <button id="btn-print" className="h-9 px-3 flex items-center justify-center bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 text-zinc-600 transition-colors text-xs font-bold shadow-sm flex-shrink-0" onClick={() => window.print()} title="Print">
+             <Printer size={14} className="text-zinc-400" />
+          </button>
+          
+          <button 
+            id="btn-clear" 
+            className="group h-9 px-2.5 hover:px-3 flex items-center bg-rose-50 hover:bg-rose-100 border border-rose-100 text-rose-600 rounded-lg transition-all duration-300 text-xs font-bold shadow-sm active:scale-95 flex-shrink-0 whitespace-nowrap overflow-hidden" 
+            onClick={() => setShowClearConfirm(true)}
+            title="Clear Today"
+          >
+             <Trash2 size={13} className="text-rose-500 flex-shrink-0" /> 
+             <div className="flex items-center max-w-0 opacity-0 group-hover:max-w-[100px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-in-out">
+                <span>Clear</span>
+             </div>
+          </button>
         </div>
       </div>
-
+      
+      {/* Clear Confirmation Modal */}
       {showClearConfirm && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'white', padding: '1.5rem', borderRadius: 'var(--radius-lg)', maxWidth: '400px', width: '90%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}>
-             <h3 style={{ marginTop: 0, fontWeight: 600, color: 'var(--text-main)' }}>Clear Timetable?</h3>
-             <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Are you sure you want to completely clear the timetable for <strong>{activeDay}</strong>? This action cannot be undone.</p>
-             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-               <button className="btn" onClick={() => setShowClearConfirm(false)} style={{ flex: 1, border: '1px solid var(--border)' }}>Cancel</button>
-               <button className="btn" onClick={confirmClear} style={{ flex: 1, background: '#ef4444', color: 'white', border: 'none' }}>Yes, Clear</button>
-             </div>
-          </div>
-        </div>
-      )}
-      
-      {showSettings && <TimingSettingsModal onClose={() => setShowSettings(false)} />}
-      {showClassManager && <ClassManagerModal onClose={() => setShowClassManager(false)} />}
-      
-      {validationErrors.length > 0 && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'white', padding: '1.5rem', borderRadius: 'var(--radius-lg)', maxWidth: '450px', width: '90%', boxShadow: 'var(--shadow-lg)' }}>
-             <h3 style={{ marginTop: 0, fontWeight: 700, color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-               Timetable is Incomplete!
-             </h3>
-             <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>The system detected the following validation issues matching your constraints:</p>
-             <ul style={{ paddingLeft: '1.25rem', marginBottom: '1.5rem', color: '#475569', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {validationErrors.map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-             </ul>
-             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-               <button className="btn" onClick={() => { setValidationErrors([]); setPendingAction(null); }} style={{ border: '1px solid var(--border)' }}>Cancel & Fix</button>
-               <button className="btn" onClick={() => { 
-                   setValidationErrors([]); 
-                   if (pendingAction) pendingAction(); 
-               }} style={{ border: 'none', background: 'var(--primary-color)', color: 'white' }}>Proceed Anyway</button>
-             </div>
+        <div className="modal-overlay">
+          <div className="modal-container max-w-sm w-full p-8 animate-fade">
+            <div className="w-14 h-14 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mb-6 mx-auto">
+               <Trash2 size={24} />
+            </div>
+            <h2 className="text-xl font-black text-zinc-900 text-center mb-2">Clear {activeDay}?</h2>
+            <p className="text-sm text-zinc-500 text-center mb-8">This will wipe all allocations for <strong className="text-zinc-700">{activeDay}</strong> allowing you to reset for unavailable teachers. Locked sessions strictly remain unaffected.</p>
+            <div className="flex gap-3">
+              <button className="flex-1 h-12 bg-zinc-100 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-colors" onClick={() => setShowClearConfirm(false)}>Cancel</button>
+              <button className="flex-1 h-12 bg-rose-500 text-white rounded-xl font-bold text-sm hover:bg-rose-600 shadow-[0_4px_12px_rgba(244,63,94,0.25)] transition-all active:scale-95" onClick={() => { 
+                dispatch({ type: 'CLEAR_TODAY', payload: activeDay }); 
+                setShowClearConfirm(false); 
+                toast('warning', 'Day Cleared', `All unlocked assignments for ${activeDay} have been removed.`);
+              }}>Reset Today</button>
+            </div>
           </div>
         </div>
       )}

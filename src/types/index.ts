@@ -16,6 +16,9 @@ export interface Teacher {
   maxLoadPerDay: number;
   designation?: string;
   defaultSubjectId?: string;
+  incharge?: string;
+  responsibilities?: string[];
+  inchargeRoles?: { classId: string; role: string }[];
 }
 
 export interface Subject {
@@ -23,6 +26,8 @@ export interface Subject {
   code: string;
   name: string;
   type: 'Core' | 'Skill';
+  category?: 'Academic' | 'Administrative';
+  isAdditional?: boolean;
   maxDailyClasses?: number;
   maxWeeklyClasses?: number;
 }
@@ -34,6 +39,7 @@ export interface ClassSection {
   group: ClassGroup;
   classTeacherId?: string;
   coClassTeacherId?: string;
+  subjectInchargeId?: string; // Teacher responsible for subject coordination in this class
 }
 
 // Maps which teacher teaches what subject to which section
@@ -59,6 +65,17 @@ export interface Assignment {
   isLocked: boolean; 
 }
 
+export interface ClassMerge {
+  id: string;
+  subjectId: string;
+  teacherId: string;
+  classSectionIds: string[];
+  scope: 'Today' | 'Range' | 'Session';
+  startDate?: string;
+  endDate?: string;
+  isWholeDay?: boolean;
+}
+
 export interface ValidationResult {
   isValid: boolean;
   type?: 'error' | 'warning';
@@ -77,15 +94,44 @@ export interface SchoolSettings {
   };
 }
 
+export interface ConstraintSettings {
+  maxContiguousV_X: number;
+  maxContiguousXI_XII: number;
+  maxContiguousTimeMixed: number;
+  minGapAfterContiguousMixed: number;
+  maxDailyPeriodsV_X: number;
+  maxDailyPeriodsXI_XII: number;
+  maxDailyPeriodsV_X_Sat: number;
+  maxDailyPeriodsXI_XII_Sat: number;
+  maxDailyTimeMixed: number;
+  maxWeeklyPeriodsMixed: number;
+  maxWeeklyTimeMixed: number;
+  enforceClassTeacherZeroPeriod: boolean;
+}
+
+export interface ClassSubjectLimit {
+  id: string;
+  grade: string; // e.g. 'VI', 'XI', or 'ALL'
+  subjectId: string;
+  maxDaily: number;
+  maxWeekly: number;
+}
+
 export interface AppState {
   academicSession: string;
+  sessionStartDate: string;
+  sessionEndDate: string;
   timingMode: TimingMode;
   schoolSettings: SchoolSettings;
+  constraints: ConstraintSettings;
   teachers: Teacher[];
   subjects: Subject[];
   classes: ClassSection[];
+  classSubjectLimits: ClassSubjectLimit[];
   allocations: SubjectAllocation[];
   assignments: Assignment[];
+  merges: ClassMerge[];
+  sessions: string[];
   timeSlots: {
     'VI-X': Record<TimingMode, TimeSlot[]>;
     'XI-XII': Record<TimingMode, TimeSlot[]>;

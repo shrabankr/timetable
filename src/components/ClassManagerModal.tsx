@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Save, Plus, Trash2 } from 'lucide-react';
 import { useTimetable } from '../store/TimetableContext';
+import { useToast } from './Toast';
 import type { ClassGroup, ClassSection } from '../types';
 
 interface ClassManagerModalProps {
@@ -9,6 +10,7 @@ interface ClassManagerModalProps {
 
 export default function ClassManagerModal({ onClose }: ClassManagerModalProps) {
   const { state, dispatch } = useTimetable();
+  const { toast } = useToast();
   
   const [activeGroup, setActiveGroup] = useState<ClassGroup>('VI-X');
   
@@ -36,7 +38,7 @@ export default function ClassManagerModal({ onClose }: ClassManagerModalProps) {
        const conflict = getTeacherConflict(value, id);
        if (conflict) {
           const teacher = state.teachers.find(t => t.id === value);
-          alert(`ERROR: Teacher ${teacher?.name} is already assigned as a Class Teacher to ${conflict.grade}-${conflict.section}! A teacher cannot be a Class Teacher for multiple sections.`);
+          toast('error', 'Teacher Conflict', `${teacher?.name} is already assigned as Class Teacher to ${conflict.grade}-${conflict.section}.`);
           return;
        }
     }
@@ -52,7 +54,7 @@ export default function ClassManagerModal({ onClose }: ClassManagerModalProps) {
 
   const handleAddClass = () => {
     if (!newGrade || !newSection) {
-      alert("Grade and Section are required!");
+      toast('error', 'Missing Fields', 'Grade and Section are required.');
       return;
     }
 
@@ -60,7 +62,7 @@ export default function ClassManagerModal({ onClose }: ClassManagerModalProps) {
        const conflict = getTeacherConflict(newClassTeacher);
        if (conflict) {
           const teacher = state.teachers.find(t => t.id === newClassTeacher);
-          alert(`ERROR: Primary Teacher ${teacher?.name} is already assigned to ${conflict.grade}-${conflict.section}!`);
+          toast('error', 'Teacher Conflict', `Primary Teacher ${teacher?.name} is already assigned to ${conflict.grade}-${conflict.section}.`);
           return;
        }
     }
@@ -69,13 +71,13 @@ export default function ClassManagerModal({ onClose }: ClassManagerModalProps) {
        const conflict = getTeacherConflict(newCoClassTeacher);
        if (conflict) {
           const teacher = state.teachers.find(t => t.id === newCoClassTeacher);
-          alert(`ERROR: Co-Teacher ${teacher?.name} is already assigned to ${conflict.grade}-${conflict.section}!`);
+          toast('error', 'Teacher Conflict', `Co-Teacher ${teacher?.name} is already assigned to ${conflict.grade}-${conflict.section}.`);
           return;
        }
     }
     
     if (newClassTeacher && newCoClassTeacher && newClassTeacher === newCoClassTeacher) {
-       alert("ERROR: The Class Teacher and Co-Class Teacher cannot be the exact same person!");
+       toast('error', 'Invalid Assignment', 'The Class Teacher and Co-Class Teacher cannot be the same person.');
        return;
     }
 
@@ -93,73 +95,88 @@ export default function ClassManagerModal({ onClose }: ClassManagerModalProps) {
     setNewSection('');
     setNewClassTeacher('');
     setNewCoClassTeacher('');
+    toast('success', 'Class Added', `${newGrade}-${newSection.toUpperCase()} added to ${activeGroup}.`);
   };
 
   const saveSettings = () => {
     dispatch({ type: 'SET_CLASSES', payload: editingClasses });
-    alert('Class Sections saved successfully!');
+    toast('success', 'Classes Saved', 'All class sections have been saved successfully.');
     onClose();
   };
 
   const filteredClasses = editingClasses.filter(c => c.group === activeGroup);
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', width: '95%', maxWidth: '800px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-xl)' }}>
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-container w-[95%] max-w-[800px] animate-fade">
         
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-main)' }}>Manage Classes & Sections</h2>
-          <button className="icon-btn" onClick={onClose} style={{ border: 'none', background: 'transparent' }}>
-            <X size={24} />
+        <div className="modal-header">
+          <h2>Manage Classes & Sections</h2>
+          <button className="p-2 hover:bg-zinc-100 rounded-xl text-zinc-400 hover:text-zinc-600 transition-colors" onClick={onClose}>
+            <X size={20} />
           </button>
         </div>
 
-        <div style={{ padding: '1.5rem', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-             <select className="select-input" value={activeGroup} onChange={(e) => setActiveGroup(e.target.value as ClassGroup)} style={{ flex: 1, padding: '0.75rem', fontWeight: 600 }}>
-               <option value="VI-X">Group: VI-X</option>
-               <option value="XI-XII">Group: XI-XII</option>
-             </select>
+        <div className="modal-body">
+          <div className="mb-5">
+            <select className="modal-select w-48" value={activeGroup} onChange={(e) => setActiveGroup(e.target.value as ClassGroup)}>
+              <option value="VI-X">Group: VI-X</option>
+              <option value="XI-XII">Group: XI-XII</option>
+            </select>
           </div>
 
-          <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', border: '1px solid var(--border)' }}>
-            <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)' }}>Add New Class</h4>
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-               <input type="text" className="select-input" placeholder="Grade (e.g. VI, XI)" value={newGrade} onChange={e => setNewGrade(e.target.value)} style={{ width: '120px' }} />
-               <input type="text" className="select-input" placeholder="Section (e.g. A)" value={newSection} onChange={e => setNewSection(e.target.value)} style={{ width: '120px' }} />
+          {/* Add New Class */}
+          <div className="bg-zinc-50 p-5 rounded-2xl border border-zinc-200/60 mb-6">
+            <h4 className="text-sm font-bold text-zinc-800 mb-4">Add New Class</h4>
+            <div className="flex gap-3 items-end flex-wrap">
+               <div>
+                 <label className="modal-label">Grade</label>
+                 <input type="text" className="modal-input w-28" placeholder="e.g. VI" value={newGrade} onChange={e => setNewGrade(e.target.value)} />
+               </div>
+               <div>
+                 <label className="modal-label">Section</label>
+                 <input type="text" className="modal-input w-20" placeholder="A" value={newSection} onChange={e => setNewSection(e.target.value)} />
+               </div>
                
-               <select className="select-input" value={newClassTeacher} onChange={e => setNewClassTeacher(e.target.value)} style={{ flex: 1, minWidth: '150px' }}>
-                 <option value="">-- Assign Class Teacher --</option>
-                 {state.teachers.map(t => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
-               </select>
+               <div className="flex-1 min-w-[150px]">
+                 <label className="modal-label">Class Teacher</label>
+                 <select className="modal-select" value={newClassTeacher} onChange={e => setNewClassTeacher(e.target.value)}>
+                   <option value="">-- Assign Class Teacher --</option>
+                   {state.teachers.map(t => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
+                 </select>
+               </div>
 
-               <select className="select-input" value={newCoClassTeacher} onChange={e => setNewCoClassTeacher(e.target.value)} style={{ flex: 1, minWidth: '150px' }}>
-                 <option value="">-- Assign Co-Class Teacher (Opt) --</option>
-                 {state.teachers.map(t => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
-               </select>
+               <div className="flex-1 min-w-[150px]">
+                 <label className="modal-label">Co-Class Teacher</label>
+                 <select className="modal-select" value={newCoClassTeacher} onChange={e => setNewCoClassTeacher(e.target.value)}>
+                   <option value="">-- Optional --</option>
+                   {state.teachers.map(t => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
+                 </select>
+               </div>
 
-               <button className="btn btn-primary" onClick={handleAddClass}>
-                 <Plus size={18} /> Add
+               <button className="btn-primary-modal" onClick={handleAddClass}>
+                 <Plus size={16} /> Add
                </button>
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 1fr) 2fr 2fr 40px', gap: '1rem', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.9rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>
+          {/* Class List */}
+          <div className="space-y-2">
+             <div className="grid grid-cols-[80px_1fr_1fr_40px] gap-4 text-xs font-bold text-zinc-400 uppercase tracking-wider pb-2 border-b border-zinc-200">
                <div>Class</div>
                <div>Class Teacher</div>
                <div>Co-Class Teacher</div>
-               <div>Action</div>
+               <div></div>
              </div>
 
              {filteredClasses.map((cls) => (
-                <div key={cls.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 1fr) 2fr 2fr 40px', gap: '1rem', alignItems: 'center' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '1.1rem' }}>
+                <div key={cls.id} className="grid grid-cols-[80px_1fr_1fr_40px] gap-4 items-center py-2 hover:bg-zinc-50 rounded-lg transition-colors">
+                  <div className="font-bold text-zinc-900">
                     {cls.grade}-{cls.section}
                   </div>
                   
                   <select 
-                     className="select-input" 
+                     className="modal-select" 
                      value={cls.classTeacherId || ''} 
                      onChange={(e) => handleClassChange(cls.id, 'classTeacherId', e.target.value)}
                   >
@@ -168,7 +185,7 @@ export default function ClassManagerModal({ onClose }: ClassManagerModalProps) {
                   </select>
 
                   <select 
-                     className="select-input" 
+                     className="modal-select" 
                      value={cls.coClassTeacherId || ''} 
                      onChange={(e) => handleClassChange(cls.id, 'coClassTeacherId', e.target.value)}
                   >
@@ -176,21 +193,25 @@ export default function ClassManagerModal({ onClose }: ClassManagerModalProps) {
                      {state.teachers.map(t => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
                   </select>
 
-                  <button className="icon-btn" onClick={() => handleDeleteClass(cls.id)} title="Delete Class" style={{ border: 'none', background: '#fee2e2', color: '#ef4444' }}>
-                     <Trash2 size={16} />
+                  <button 
+                    className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-rose-50 text-zinc-400 hover:text-rose-500 transition-colors" 
+                    onClick={() => handleDeleteClass(cls.id)} 
+                    title="Delete Class"
+                  >
+                     <Trash2 size={15} />
                   </button>
                 </div>
              ))}
              {filteredClasses.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem 0' }}>No classes found in this group.</div>
+                <div className="text-center text-zinc-400 py-8 text-sm font-medium">No classes found in this group.</div>
              )}
           </div>
         </div>
 
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-          <button className="btn" onClick={onClose} style={{ border: '1px solid var(--border)' }}>Cancel</button>
-          <button className="btn btn-primary" onClick={saveSettings}>
-            <Save size={18} /> Save Classes
+        <div className="modal-footer">
+          <button className="btn-secondary-modal" onClick={onClose}>Cancel</button>
+          <button className="btn-primary-modal" onClick={saveSettings}>
+            <Save size={16} /> Save Classes
           </button>
         </div>
 
