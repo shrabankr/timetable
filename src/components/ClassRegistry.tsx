@@ -148,7 +148,7 @@ export default function ClassRegistry() {
   };
 
   const saveEdit = (id: string) => {
-    if (!validateAssignments(editGrade, editSection, editClassTeacherId, editSubjectInchargeId, id)) return;
+    if (!validateAssignments(editGrade, editClassTeacherId, editSubjectInchargeId, id)) return;
 
     let updatedClasses = state.classes.map(c => c.id === id ? { 
       ...c, 
